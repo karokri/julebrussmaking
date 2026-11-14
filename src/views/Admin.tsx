@@ -20,6 +20,7 @@ export default function Admin({ store, config, onChanged }: Props) {
   const [votes, setVotes] = useState<VoteFile[]>([])
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [armed, setArmed] = useState<'reveal' | 'count' | null>(null)
 
   const loadVotes = useCallback(() => {
     store.getAllVotes().then(setVotes).catch(() => {})
@@ -67,9 +68,11 @@ export default function Admin({ store, config, onChanged }: Props) {
   const saveList = async () => {
     const list = parseLines(text)
     if (!list.length) return setMsg('Listen er tom')
-    if (votes.length && config && list.length !== config.count) {
-      if (!confirm(`Antallet brus endres fra ${config.count} til ${list.length}, og noen har allerede stemt. Fortsette?`)) return
+    if (votes.length && config && list.length !== config.count && armed !== 'count') {
+      setArmed('count')
+      return setMsg(`Antallet endres fra ${config.count} til ${list.length}, og noen har allerede stemt. Trykk Lagre igjen for å bekrefte.`)
     }
+    setArmed(null)
     const revealed = config?.revealed ?? false
     await write(
       { count: list.length, encNames: await encrypt(JSON.stringify(list), pw), revealed, names: revealed ? list : undefined },
@@ -80,7 +83,8 @@ export default function Admin({ store, config, onChanged }: Props) {
 
   const setRevealed = async (revealed: boolean) => {
     if (!config || !names?.length) return setMsg('Lagre bruslisten først')
-    if (revealed && !confirm('Avsløre resultatet for alle nå? Da kan ingen endre karakterene sine.')) return
+    if (revealed && armed !== 'reveal') return setArmed('reveal')
+    setArmed(null)
     await write({ ...config, revealed, names: revealed ? names : undefined }, revealed ? 'Resultatet er avslørt 🎉' : 'Resultatet er skjult igjen')
   }
 
@@ -132,9 +136,10 @@ export default function Admin({ store, config, onChanged }: Props) {
           <strong>{!config ? 'Ikke satt opp' : config.revealed ? 'Resultatet er avslørt' : 'Smaking pågår'}</strong>
         </p>
         <div className="stack">
+          {armed === 'reveal' && <p className="muted small">Etter avsløring kan ingen endre karakterene sine.</p>}
           {config && !config.revealed && (
             <button className="primary" disabled={busy} onClick={() => setRevealed(true)}>
-              🎉 Avslør resultatet
+              {armed === 'reveal' ? 'Sikker? Trykk igjen for å avsløre' : '🎉 Avslør resultatet'}
             </button>
           )}
           {config?.revealed && (

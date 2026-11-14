@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { isTestMode, openStore } from '../lib/auth'
-import { DEMO_ADMIN_PASSWORD, resetDemo, seedDemo } from '../lib/demo'
 import { slugify } from '../lib/slug'
 import type { Store } from '../lib/storage'
 import type { Session } from '../lib/types'
@@ -12,7 +11,6 @@ export default function Login({ onLogin, restoring }: Props) {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [demoMsg, setDemoMsg] = useState('')
   const [confirm, setConfirm] = useState<{ session: Session; store: Store } | null>(null)
 
   if (restoring) return <p className="center muted">Logger inn …</p>
@@ -101,37 +99,6 @@ export default function Login({ onLogin, restoring }: Props) {
       <button className="primary" disabled={busy}>
         {busy ? 'Sjekker …' : 'Start smakingen'}
       </button>
-      {isTestMode && (
-        <>
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true)
-              await seedDemo(await openStore(''))
-              setBusy(false)
-              setDemoMsg(`Demodata lagt inn: 21 brus og 9 smakere. Adminpassord: «${DEMO_ADMIN_PASSWORD}»`)
-            }}
-          >
-            Legg inn demodata
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true)
-              await resetDemo(await openStore(''))
-              setBusy(false)
-              setDemoMsg(`Nullstilt: 21 brus, ingen stemmer. Adminpassord: «${DEMO_ADMIN_PASSWORD}»`)
-            }}
-          >
-            Nullstill – ingen har svart
-          </button>
-          {demoMsg && <p className="msg">{demoMsg}</p>}
-        </>
-      )}
     </form>
   )
 }
