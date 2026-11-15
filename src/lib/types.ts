@@ -30,4 +30,7 @@ export type Archive = {
   votes: VoteFile[]
 }
 
-export type ArchiveMeta = Pick<Archive, 'id' | 'title' | 'savedAt'>
+export type ArchiveMeta = Pick<Archive, 'id' | 'title' | 'savedAt'> & {
+  /** Navn på alle som ga karakterer */
+  participants: string[]
+}

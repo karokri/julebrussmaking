@@ -7,6 +7,7 @@ import Tasting from './views/Tasting'
 import Results from './views/Results'
 import Admin from './views/Admin'
 import ArchiveView from './views/ArchiveView'
+import PastTastings from './components/PastTastings'
 import Snow from './components/Snow'
 import Lights from './components/Lights'
 
@@ -118,7 +119,12 @@ export default function App() {
       <Lights />
       {isTestMode && <div className="banner">Testmodus – lagres bare i denne nettleseren</div>}
       {error && <div className="banner error">{error}</div>}
-      <main>{content}</main>
+      <main>
+        {content}
+        {session && store && hash !== '#admin' && !hash.startsWith('#arkiv/') && (
+          <PastTastings store={store} me={session.name} />
+        )}
+      </main>
       {store && hash !== '#admin' && !hash.startsWith('#arkiv/') && (
         <footer>
           <a href="#admin">Arrangør</a>

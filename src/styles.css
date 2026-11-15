@@ -944,3 +944,7 @@ footer,
     transform: none;
   }
 }
+
+.past-tastings {
+  margin-top: 16px;
+}

@@ -21,8 +21,8 @@ export default function ArchiveView({ store, id, me }: Props) {
     return (
       <div className="card center">
         <h2>Fant ikke smakingen</h2>
-        <a href="#admin" className="center-link">
-          ← Tilbake til arrangør
+        <a href="#" className="center-link">
+          ← Tilbake
         </a>
       </div>
     )
@@ -36,8 +36,8 @@ export default function ArchiveView({ store, id, me }: Props) {
         title={`${archive.title} (${new Date(archive.savedAt).toLocaleDateString('nb-NO')})`}
         intro={false}
       />
-      <a href="#admin" className="center-link no-print">
-        ← Tilbake til arrangør
+      <a href="#" className="center-link no-print">
+        ← Tilbake
       </a>
     </>
   )

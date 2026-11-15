@@ -17,7 +17,12 @@ export interface Store {
 }
 
 const byNewest = (a: ArchiveMeta, b: ArchiveMeta) => b.savedAt.localeCompare(a.savedAt)
-const toMeta = ({ id, title, savedAt }: Archive): ArchiveMeta => ({ id, title, savedAt })
+const toMeta = ({ id, title, savedAt, votes }: Archive): ArchiveMeta => ({
+  id,
+  title,
+  savedAt,
+  participants: votes.map((v) => v.name),
+})
 
 /**
  * Lagrer JSON-filer i et (privat) GitHub-repo via Contents API.
