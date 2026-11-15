@@ -6,6 +6,7 @@ import Login from './views/Login'
 import Tasting from './views/Tasting'
 import Results from './views/Results'
 import Admin from './views/Admin'
+import ArchiveView from './views/ArchiveView'
 import Snow from './components/Snow'
 import Lights from './components/Lights'
 
@@ -42,8 +43,8 @@ export default function App() {
     try {
       setConfig(await store.getConfig())
       setError('')
-    } catch {
-      setError('Får ikke kontakt med serveren. Prøver igjen …')
+    } catch (e) {
+      setError(`Får ikke kontakt med serveren. Prøver igjen … ${e instanceof Error ? e.message : ''}`)
     }
   }, [store])
 
@@ -79,6 +80,8 @@ export default function App() {
         restoring={!!session}
       />
     )
+  } else if (hash.startsWith('#arkiv/')) {
+    content = <ArchiveView store={store} id={decodeURIComponent(hash.slice('#arkiv/'.length))} me={session.name} />
   } else if (hash === '#admin') {
     content = <Admin store={store} config={config ?? null} onChanged={refreshConfig} />
   } else if (config === undefined) {
@@ -116,7 +119,7 @@ export default function App() {
       {isTestMode && <div className="banner">Testmodus – lagres bare i denne nettleseren</div>}
       {error && <div className="banner error">{error}</div>}
       <main>{content}</main>
-      {store && hash !== '#admin' && (
+      {store && hash !== '#admin' && !hash.startsWith('#arkiv/') && (
         <footer>
           <a href="#admin">Arrangør</a>
         </footer>

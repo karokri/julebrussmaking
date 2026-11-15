@@ -19,3 +19,15 @@ export type VoteFile = {
 }
 
 export type Session = { name: string; password: string }
+
+/** archive/<id>.json – en avsluttet smaking */
+export type Archive = {
+  id: string
+  title: string
+  savedAt: string
+  count: number
+  names: string[]
+  votes: VoteFile[]
+}
+
+export type ArchiveMeta = Pick<Archive, 'id' | 'title' | 'savedAt'>

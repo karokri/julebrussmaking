@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RATINGS } from '../lib/rating'
 import Confetti from '../components/Confetti'
 import Reindeer from '../components/Reindeer'
@@ -26,16 +26,26 @@ export default function Tasting({ store, config, name }: Props) {
       .finally(() => setLoaded(true))
   }, [store, slug])
 
+  // Versjonsteller: «Lagret ✓» vises bare når den nyeste endringen er lagret
+  const version = useRef(0)
+
+  const saveNow = useCallback(async () => {
+    const v = version.current
+    setStatus('saving')
+    await store.saveVote(slug, { name, scores: latest.current, updated: new Date().toISOString() })
+    if (version.current === v) {
+      dirty.current = false
+      setStatus('saved')
+    }
+  }, [store, slug, name])
+
   // Lagre automatisk litt etter siste trykk; prøv igjen ved feil
   useEffect(() => {
     if (!dirty.current) return
     let retry: ReturnType<typeof setTimeout>
     const save = async () => {
-      setStatus('saving')
       try {
-        await store.saveVote(slug, { name, scores: latest.current, updated: new Date().toISOString() })
-        dirty.current = false
-        setStatus('saved')
+        await saveNow()
       } catch {
         setStatus('error')
         retry = setTimeout(save, 5000)
@@ -46,10 +56,21 @@ export default function Tasting({ store, config, name }: Props) {
       clearTimeout(t)
       clearTimeout(retry)
     }
-  }, [scores, store, slug, name])
+  }, [scores, saveNow])
+
+  // Lagre med en gang hvis appen lukkes eller legges i bakgrunnen
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState === 'hidden' && dirty.current) saveNow().catch(() => {})
+    }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+  }, [saveNow])
 
   const rate = (nr: number, value: number) => {
     dirty.current = true
+    version.current++
+    setStatus('saving')
     setScores((s) => ({ ...s, [nr]: value }))
   }
 

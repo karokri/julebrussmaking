@@ -6,23 +6,34 @@ import Reindeer from '../components/Reindeer'
 import type { Store } from '../lib/storage'
 import type { Config, VoteFile } from '../lib/types'
 
-type Props = { store: Store; config: Config; me: string }
+type Props = {
+  config: Config
+  me: string
+  /** Henter stemmene fra store, med mindre `votes` er gitt (arkiv) */
+  store?: Store
+  votes?: VoteFile[]
+  /** Overskrift, brukes for arkiverte smakinger */
+  title?: string
+  /** Trommevirvel og konfetti før vinneren vises */
+  intro?: boolean
+}
 const MEDALS = ['🥇', '🥈', '🥉']
 
-export default function Results({ store, config, me }: Props) {
-  const [votes, setVotes] = useState<VoteFile[] | null>(null)
+export default function Results({ store, config, me, votes: givenVotes, title, intro = true }: Props) {
+  const [votes, setVotes] = useState<VoteFile[] | null>(givenVotes ?? null)
   const [error, setError] = useState(false)
   const [showAll, setShowAll] = useState(false)
-  const [phase, setPhase] = useState<'drum' | 'reveal'>('drum')
+  const [phase, setPhase] = useState<'drum' | 'reveal'>(intro ? 'drum' : 'reveal')
   const [burst, setBurst] = useState(0)
   const [zoom, setZoom] = useState<{ src: string; name: string } | null>(null)
 
   useEffect(() => {
+    if (givenVotes) return setVotes(givenVotes)
     store
-      .getAllVotes()
+      ?.getAllVotes()
       .then(setVotes)
       .catch(() => setError(true))
-  }, [store])
+  }, [store, givenVotes])
 
   // Trommevirvel før vinneren vises
   useEffect(() => {
@@ -68,6 +79,13 @@ export default function Results({ store, config, me }: Props) {
   return (
     <>
       <Confetti burst={burst} pieces={120} />
+      <div className="print-header">
+        <h1>{title ?? 'Julebrustesten 2026'} – resultat</h1>
+        <p>
+          {votes.length} smakere · {config.count} brus · skrevet ut {new Date().toLocaleDateString('nb-NO')}
+        </p>
+      </div>
+      {title && <h2 className="center archive-title">{title}</h2>}
       <div className="card center winner">
         {winnerInfo?.bildeUrl ? (
           <img
@@ -100,12 +118,18 @@ export default function Results({ store, config, me }: Props) {
         ))}
       </ol>
 
-      <button className="secondary" onClick={() => setShowAll((s) => !s)}>
-        {showAll ? 'Skjul alle karakterer' : 'Vis alle karakterer'}
-      </button>
+      <div className="stack no-print">
+        <button className="secondary" onClick={() => setShowAll((s) => !s)}>
+          {showAll ? 'Skjul alle karakterer' : 'Vis alle karakterer'}
+        </button>
+        <button className="secondary" onClick={() => window.print()}>
+          🖨️ Skriv ut resultatet
+        </button>
+      </div>
 
-      {showAll && (
-        <div className="table-wrap">
+      {/* Tabellen skrives alltid ut, men vises bare på skjermen når den er åpnet */}
+      <div className={`table-wrap all-scores ${showAll ? '' : 'print-only'}`}>
+        <h2 className="print-only">Alle karakterer</h2>
           <table>
             <thead>
               <tr>
@@ -113,6 +137,7 @@ export default function Results({ store, config, me }: Props) {
                 {votes.map((v) => (
                   <th key={v.name}>{v.name}</th>
                 ))}
+                <th>Snitt</th>
               </tr>
             </thead>
             <tbody>
@@ -124,12 +149,14 @@ export default function Results({ store, config, me }: Props) {
                   {votes.map((v) => (
                     <td key={v.name}>{v.scores[r.nr] ?? '–'}</td>
                   ))}
+                  <td>
+                    <strong>{r.count ? fmt(r.avg) : '–'}</strong>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      )}
+      </div>
       {zoom && (
         <div className="lightbox" onClick={() => setZoom(null)} role="dialog" aria-label={zoom.name}>
           <img src={zoom.src} alt={zoom.name} />
@@ -144,7 +171,7 @@ export default function Results({ store, config, me }: Props) {
 function ResultRow({ row, place, mine, onZoom }: { row: Row; place: number; mine?: number; onZoom: (z: { src: string; name: string }) => void }) {
   const info = getBrusInfo(row.name)
   return (
-    <li className={`result ${place < 3 ? 'top' : ''}`} style={{ animationDelay: `${0.4 + place * 0.07}s` }}>
+    <li className={`result ${place < 3 ? 'podium' : ''}`} style={{ animationDelay: `${0.4 + place * 0.07}s` }}>
       <div className="place">{MEDALS[place] ?? place + 1}</div>
       {info?.bildeUrl ? (
         <button className="thumb" onClick={() => onZoom({ src: info.bildeUrl!, name: row.name })} aria-label={`Vis bilde av ${row.name}`}>

@@ -8,6 +8,7 @@ Blindtest av julebrus. Smakerne ser bare nummer og gir karakter 1–5 (med fjes,
 - **Data** – JSON-filer i et eget, privat repo (`julebrussmaking-data`):
   - `config.json` – antall brus, kryptert navneliste og om resultatet er avslørt
   - `votes/<navn>.json` – én fil per smaker (ingen skriver over hverandre)
+  - `archive/<dato>-<navn>.json` – avsluttede smakinger
 - **Felles passord** – låser opp et GitHub-token som er kryptert inn i appen. Feil passord = ingen tilgang.
 - **Adminpassord** – krypterer brusnavnene, så ingen kan finne dem før avsløringen.
 
@@ -32,7 +33,8 @@ Blindtest av julebrus. Smakerne ser bare nummer og gir karakter 1–5 (med fjes,
 3. Del lenke + felles passord. Alle skriver inn navnet sitt og gir karakterer – det lagres automatisk.
 4. Følg med på hvem som er ferdige under **Smakere**.
 5. Trykk **🎉 Avslør resultatet**. Alle ser resultatet innen ca. 20 sekunder (eller ved å åpne appen på nytt).
-6. **Last ned resultat (JSON)** for å ta vare på det. Rådata ligger uansett i data-repoet.
+6. **🖨️ Skriv ut resultatet** fra resultatsiden gir rangering med bilder og en tabell med alle karakterer. **Last ned resultat (JSON)** på arrangørsiden gir rådata.
+7. **Avslutt og start ny smaking** på arrangørsiden lagrer bruslisten og alle karakterer i `archive/` i data-repoet og tømmer smakingen. Gamle smakinger åpnes under **Tidligere smakinger**.
 
 Logger noen inn med et navn som allerede er brukt, spør appen «Er det deg?» – da kan man fortsette på en annen telefon.
 

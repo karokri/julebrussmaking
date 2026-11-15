@@ -3,7 +3,8 @@ import { decrypt, encrypt } from '../lib/crypto'
 import { DEFAULT_BRUS } from '../lib/defaultBrus'
 import { computeResults } from '../lib/results'
 import type { Store } from '../lib/storage'
-import type { Config, VoteFile } from '../lib/types'
+import { slugify } from '../lib/slug'
+import type { ArchiveMeta, Config, VoteFile } from '../lib/types'
 
 type Props = { store: Store; config: Config | null; onChanged: () => Promise<void> }
 
@@ -20,11 +21,21 @@ export default function Admin({ store, config, onChanged }: Props) {
   const [votes, setVotes] = useState<VoteFile[]>([])
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  const [armed, setArmed] = useState<'reveal' | 'count' | null>(null)
+  const [armed, setArmed] = useState<'reveal' | 'count' | 'archive' | null>(null)
+  const [archives, setArchives] = useState<ArchiveMeta[]>([])
+  const [archiveTitle, setArchiveTitle] = useState(`Julebrustesten ${new Date().getFullYear()}`)
 
   const loadVotes = useCallback(() => {
     store.getAllVotes().then(setVotes).catch(() => {})
   }, [store])
+
+  const loadArchives = useCallback(() => {
+    store.listArchives().then(setArchives).catch(() => {})
+  }, [store])
+
+  useEffect(() => {
+    if (names) loadArchives()
+  }, [names, loadArchives])
 
   useEffect(() => {
     if (!names) return
@@ -58,8 +69,8 @@ export default function Admin({ store, config, onChanged }: Props) {
       await store.saveConfig(next)
       await onChanged()
       setMsg(ok)
-    } catch {
-      setMsg('Noe gikk galt ved lagring – prøv igjen')
+    } catch (e) {
+      setMsg(`Noe gikk galt ved lagring. ${e instanceof Error ? e.message : ''}`)
     } finally {
       setBusy(false)
     }
@@ -100,6 +111,32 @@ export default function Admin({ store, config, onChanged }: Props) {
     const a = Object.assign(document.createElement('a'), { href: url, download: `julebrus-resultat-${new Date().getFullYear()}.json` })
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const archiveAndReset = async () => {
+    if (!config || !names?.length) return setMsg('Det finnes ingen smaking å arkivere')
+    if (!archiveTitle.trim()) return setMsg('Gi smakingen et navn')
+    if (armed !== 'archive') return setArmed('archive')
+    setArmed(null)
+    setBusy(true)
+    setMsg('')
+    try {
+      const allVotes = await store.getAllVotes()
+      const savedAt = new Date().toISOString()
+      const id = `${savedAt.slice(0, 10)}-${slugify(archiveTitle) || 'smaking'}`
+      await store.saveArchive({ id, title: archiveTitle.trim(), savedAt, count: config.count, names, votes: allVotes })
+      await store.clearVotes()
+      await store.deleteConfig()
+      setVotes([])
+      setText(DEFAULT_BRUS.join('\n'))
+      await onChanged()
+      loadArchives()
+      setMsg(`«${archiveTitle.trim()}» er lagret i arkivet. Sett opp bruslisten for en ny smaking.`)
+    } catch (e) {
+      setMsg(`Noe gikk galt ved arkivering. ${e instanceof Error ? e.message : ''}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   if (!names) {
@@ -153,7 +190,7 @@ export default function Admin({ store, config, onChanged }: Props) {
             </button>
           )}
         </div>
-        {msg && <p className="msg">{msg}</p>}
+        {msg && <p className={msg.startsWith('Noe gikk galt') || msg.startsWith('Det finnes') || msg.startsWith('Gi ') ? 'error-text' : 'msg'}>{msg}</p>}
       </div>
 
       <div className="card">
@@ -199,6 +236,38 @@ export default function Admin({ store, config, onChanged }: Props) {
         <button className="primary" disabled={busy} onClick={saveList}>
           Lagre bruslisten ({preview.length} brus)
         </button>
+      </div>
+
+      {config && (
+        <div className="card">
+          <h2>Avslutt og start ny smaking</h2>
+          <p className="muted small">
+            Lagrer bruslisten og alle karakterene i arkivet, og tømmer smakingen så du kan sette opp en ny.
+          </p>
+          <label>
+            Navn på smakingen
+            <input value={archiveTitle} onChange={(e) => setArchiveTitle(e.target.value)} maxLength={60} />
+          </label>
+          <button className="primary" disabled={busy} onClick={archiveAndReset}>
+            {armed === 'archive' ? 'Sikker? Trykk igjen for å arkivere' : '📦 Lagre i arkivet og start ny'}
+          </button>
+        </div>
+      )}
+
+      <div className="card">
+        <h2>Tidligere smakinger</h2>
+        {archives.length === 0 ? (
+          <p className="muted">Ingen smakinger er arkivert ennå.</p>
+        ) : (
+          <ul className="voters">
+            {archives.map((a) => (
+              <li key={a.id}>
+                <a href={`#arkiv/${encodeURIComponent(a.id)}`}>{a.title}</a>
+                <span className="muted small">{new Date(a.savedAt).toLocaleDateString('nb-NO')}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <a href="#" className="center-link">

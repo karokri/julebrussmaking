@@ -1,4 +1,4 @@
-import type { Config, VoteFile } from './types'
+import type { Archive, ArchiveMeta, Config, VoteFile } from './types'
 import { b64ToUtf8, utf8ToB64 } from './crypto'
 
 export interface Store {
@@ -8,12 +8,22 @@ export interface Store {
   getVote(slug: string): Promise<VoteFile | null>
   saveVote(slug: string, v: VoteFile): Promise<void>
   getAllVotes(): Promise<VoteFile[]>
+  /** Sletter alle stemmer (brukes når en ny smaking startes) */
+  clearVotes(): Promise<void>
+  deleteConfig(): Promise<void>
+  saveArchive(a: Archive): Promise<void>
+  listArchives(): Promise<ArchiveMeta[]>
+  getArchive(id: string): Promise<Archive | null>
 }
+
+const byNewest = (a: ArchiveMeta, b: ArchiveMeta) => b.savedAt.localeCompare(a.savedAt)
+const toMeta = ({ id, title, savedAt }: Archive): ArchiveMeta => ({ id, title, savedAt })
 
 /**
  * Lagrer JSON-filer i et (privat) GitHub-repo via Contents API.
  *   config.json        – brusliste + avslørt-status (skrives av admin)
  *   votes/<slug>.json  – én fil per smaker
+ *   archive/<id>.json  – avsluttede smakinger
  */
 export class GitHubStore implements Store {
   readonly mode = 'github' as const
@@ -49,7 +59,7 @@ export class GitHubStore implements Store {
     })
     if (res.status === 304 && cached) return cached.body
     if (res.status === 404) return null
-    if (!res.ok) throw new Error(`GitHub ${res.status}`)
+    if (!res.ok) throw new Error(await explain(res, this.repo))
     const body = await res.json()
     const etag = res.headers.get('ETag')
     if (etag) this.etags.set(path, { etag, body })
@@ -91,10 +101,11 @@ export class GitHubStore implements Store {
       this.etags.delete(path)
       return this.doWrite(path, data, message, false)
     }
-    if (!res.ok) throw new Error(`GitHub ${res.status}`)
+    if (!res.ok) throw new Error(await explain(res, this.repo))
     const body = await res.json()
     this.shas.set(path, body.content.sha)
     this.etags.delete(path)
+    if (path.includes('/')) this.etags.delete(path.split('/')[0])
   }
 
   getConfig() {
@@ -110,12 +121,73 @@ export class GitHubStore implements Store {
     return this.writeFile(`votes/${slug}.json`, v, `Karakterer fra ${v.name}`)
   }
   async getAllVotes() {
-    const list = (await this.getJson('votes')) as { name: string; type: string }[] | null
-    if (!list) return []
-    const files = list.filter((f) => f.type === 'file' && f.name.endsWith('.json'))
+    const files = await this.listDir('votes')
     const votes = await Promise.all(files.map((f) => this.readFile<VoteFile>(`votes/${f.name}`)))
     return votes.filter((v): v is VoteFile => v !== null)
   }
+
+  async clearVotes() {
+    // Sekvensielt: parallelle commits mot samme branch gir 409-konflikter
+    for (const f of await this.listDir('votes')) await this.deleteFile(`votes/${f.name}`, f.sha)
+  }
+
+  async deleteConfig() {
+    if (!this.shas.has('config.json')) await this.readFile('config.json')
+    const sha = this.shas.get('config.json')
+    if (sha) await this.deleteFile('config.json', sha)
+  }
+
+  saveArchive(a: Archive) {
+    return this.writeFile(`archive/${a.id}.json`, a, `Arkiver ${a.title}`)
+  }
+
+  async listArchives() {
+    const files = await this.listDir('archive')
+    const all = await Promise.all(files.map((f) => this.readFile<Archive>(`archive/${f.name}`)))
+    return all.filter((a): a is Archive => a !== null).map(toMeta).sort(byNewest)
+  }
+
+  getArchive(id: string) {
+    return this.readFile<Archive>(`archive/${id}.json`)
+  }
+
+  private async listDir(dir: string) {
+    const list = (await this.getJson(dir)) as { name: string; type: string; sha: string }[] | null
+    return (list ?? []).filter((f) => f.type === 'file' && f.name.endsWith('.json'))
+  }
+
+  private deleteFile(path: string, sha: string): Promise<void> {
+    const job = this.queue.then(async () => {
+      const res = await fetch(this.url(path), {
+        method: 'DELETE',
+        headers: this.headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ message: `Slett ${path}`, sha, branch: this.branch }),
+      })
+      if (!res.ok && res.status !== 404) throw new Error(await explain(res, this.repo))
+      this.shas.delete(path)
+      this.etags.delete(path)
+      this.etags.delete(path.split('/')[0])
+    })
+    this.queue = job.catch(() => {})
+    return job
+  }
+}
+
+async function explain(res: Response, repo: string): Promise<string> {
+  let msg = ''
+  try {
+    msg = ((await res.json()) as { message?: string }).message ?? ''
+  } catch {
+    /* ignorer */
+  }
+  const hint: Record<number, string> = {
+    401: 'Tokenet er ugyldig eller utløpt (DATA_TOKEN).',
+    403: 'Tokenet mangler skrivetilgang – sett Contents til «Read and write».',
+    404: `Finner ikke repoet ${repo}, eller tokenet har ikke tilgang til det.`,
+    409: 'Repoet er tomt – legg til en README så main-branchen finnes.',
+    422: 'Repoet er tomt eller branchen finnes ikke – legg til en README.',
+  }
+  return `GitHub ${res.status}: ${hint[res.status] ?? msg}`
 }
 
 /** Testmodus uten GitHub – alt lagres i nettleseren (kun for utvikling) */
@@ -140,12 +212,32 @@ export class LocalStore implements Store {
   async saveVote(slug: string, v: VoteFile) {
     this.write('vote:' + slug, v)
   }
-  async getAllVotes() {
-    const out: VoteFile[] = []
+  private keys(prefix: string) {
+    const out: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)!
-      if (k.startsWith('jb:vote:')) out.push(JSON.parse(localStorage.getItem(k)!))
+      if (k.startsWith(prefix)) out.push(k)
     }
     return out
+  }
+  async getAllVotes() {
+    return this.keys('jb:vote:').map((k) => JSON.parse(localStorage.getItem(k)!) as VoteFile)
+  }
+  async clearVotes() {
+    this.keys('jb:vote:').forEach((k) => localStorage.removeItem(k))
+  }
+  async deleteConfig() {
+    localStorage.removeItem('jb:config')
+  }
+  async saveArchive(a: Archive) {
+    this.write('archive:' + a.id, a)
+  }
+  async listArchives() {
+    return this.keys('jb:archive:')
+      .map((k) => toMeta(JSON.parse(localStorage.getItem(k)!) as Archive))
+      .sort(byNewest)
+  }
+  async getArchive(id: string) {
+    return this.read<Archive>('archive:' + id)
   }
 }

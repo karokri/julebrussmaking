@@ -376,7 +376,7 @@ button.link {
   align-items: flex-start;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
 }
-.result.top {
+.result.podium {
   border: 2px solid var(--gold);
 }
 .place {
@@ -753,7 +753,7 @@ footer,
   font-family: 'Mountains of Christmas', Georgia, serif;
   font-size: 2.1rem;
 }
-.result.top .place {
+.result.podium .place {
   animation: bounce 1.6s ease infinite;
 }
 .bar-fill {
@@ -816,4 +816,131 @@ footer,
   color: var(--red);
   font-size: 1.25rem;
   margin-bottom: 4px;
+}
+
+/* ---------- Arkiv ---------- */
+.archive-title {
+  color: var(--red);
+  margin: 4px 0 12px;
+}
+.voters a {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ---------- Utskrift ---------- */
+.print-only,
+.print-header {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  :root {
+    font-size: 11pt;
+  }
+  body {
+    background: #fff !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+  }
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+  .snow,
+  .lights,
+  .confetti,
+  .lightbox,
+  .banner,
+  header.top,
+  footer,
+  .no-print,
+  .archive-title,
+  .winner::before {
+    display: none !important;
+  }
+  .print-header,
+  .print-only {
+    display: block !important;
+  }
+  .print-header {
+    text-align: center;
+    margin-bottom: 8mm;
+  }
+  .print-header h1 {
+    font-family: 'Mountains of Christmas', Georgia, serif;
+    color: var(--red);
+    font-size: 22pt;
+    margin: 0 0 2mm;
+  }
+  .print-header p {
+    margin: 0;
+    color: #555;
+  }
+  .card,
+  .result {
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+  }
+  .winner {
+    border: 2px solid var(--gold) !important;
+    background: #fff !important;
+  }
+  .winner-img {
+    height: 50mm;
+  }
+  .results {
+    gap: 3mm;
+  }
+  .thumb {
+    width: 12mm;
+    height: 26mm;
+  }
+  .bar,
+  .bar-fill,
+  .badge,
+  .winner {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .all-scores {
+    break-before: page;
+    overflow: visible;
+    background: none;
+  }
+  .all-scores h2 {
+    margin: 0 0 4mm;
+  }
+  .all-scores table {
+    width: 100%;
+    font-size: 8.5pt;
+    white-space: normal;
+  }
+  .all-scores th,
+  .all-scores td {
+    padding: 1.5mm 1mm;
+    border: 1px solid #ccc;
+  }
+  .all-scores tbody th {
+    position: static;
+  }
+  .all-scores thead th {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    vertical-align: bottom;
+    white-space: nowrap;
+  }
+  .all-scores thead th:first-child {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
 }
