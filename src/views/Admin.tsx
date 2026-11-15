@@ -142,7 +142,7 @@ export default function Admin({ store, config, onChanged }: Props) {
   if (!names) {
     return (
       <form className="card" onSubmit={unlock}>
-        <h1>Arrangør</h1>
+        <h1>Arrangør{store.group && <span className="group-tag">gruppe {store.group}</span>}</h1>
         <p className="muted">
           {config?.encNames
             ? 'Skriv adminpassordet for å se bruslisten og styre smakingen.'
@@ -167,7 +167,7 @@ export default function Admin({ store, config, onChanged }: Props) {
   return (
     <>
       <div className="card">
-        <h1>Arrangør</h1>
+        <h1>Arrangør{store.group && <span className="group-tag">gruppe {store.group}</span>}</h1>
         <p>
           Status:{' '}
           <strong>{!config ? 'Ikke satt opp' : config.revealed ? 'Resultatet er avslørt' : 'Smaking pågår'}</strong>

@@ -24,10 +24,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Krypter token med felles passord
+      - name: Krypter token med gruppepassord
         env:
           DATA_TOKEN: ${{ secrets.DATA_TOKEN }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          APP_PASSWORDS: ${{ secrets.APP_PASSWORDS }}
         run: node scripts/encrypt-token.mjs >> .env.production.local
       - run: npm run build
         env:

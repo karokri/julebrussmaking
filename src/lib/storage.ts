@@ -3,6 +3,8 @@ import { b64ToUtf8, utf8ToB64 } from './crypto'
 
 export interface Store {
   readonly mode: 'github' | 'local'
+  /** Gruppen brukeren hører til ('' = hovedgruppen) */
+  readonly group: string
   getConfig(): Promise<Config | null>
   saveConfig(c: Config): Promise<void>
   getVote(slug: string): Promise<VoteFile | null>
@@ -36,14 +38,21 @@ export class GitHubStore implements Store {
   private etags = new Map<string, { etag: string; body: unknown }>()
   private queue: Promise<unknown> = Promise.resolve()
 
+  /** Mappe i data-repoet for denne gruppen ('' = hovedgruppen i roten) */
+  private readonly prefix: string
+
   constructor(
     private token: string,
     private repo: string,
     private branch = 'main',
-  ) {}
+    /** Gruppenavn fra passordet – hver gruppe har egne data */
+    readonly group = '',
+  ) {
+    this.prefix = group ? `grupper/${group}/` : ''
+  }
 
   private url(path: string) {
-    return `https://api.github.com/repos/${this.repo}/contents/${path}`
+    return `https://api.github.com/repos/${this.repo}/contents/${this.prefix}${path}`
   }
 
   private headers(extra: Record<string, string> = {}) {
@@ -198,6 +207,7 @@ async function explain(res: Response, repo: string): Promise<string> {
 /** Testmodus uten GitHub – alt lagres i nettleseren (kun for utvikling) */
 export class LocalStore implements Store {
   readonly mode = 'local' as const
+  readonly group = ''
   private read<T>(key: string): T | null {
     const v = localStorage.getItem('jb:' + key)
     return v ? (JSON.parse(v) as T) : null
